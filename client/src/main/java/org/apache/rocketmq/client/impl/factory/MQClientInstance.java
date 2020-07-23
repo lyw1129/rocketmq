@@ -554,7 +554,21 @@ public class MQClientInstance {
                             }
 
                             try {
+                                if (StringUtils.isNotBlank(brokerAddr)) {
+                                    String [] brokerAddrArray  = brokerAddr.split(",");
+                                    if(brokerAddrArray[0].equals(brokerName)) {
+                                        addr = brokerAddrArray[1];
+                                    }
+                                    if(brokerAddrArray[2].equals(brokerName)) {
+                                        addr = brokerAddrArray[3];
+                                    }
+
+                                }
                                 int version = this.mQClientAPIImpl.sendHearbeat(addr, heartbeatData, 3000);
+                                
+                                if (StringUtils.isNotBlank(brokerAddr)) {
+                                    addr = entry1.getValue();
+                                }
                                 if (!this.brokerVersionTable.containsKey(brokerName)) {
                                     this.brokerVersionTable.put(brokerName, new HashMap<String, Integer>(4));
                                 }
@@ -996,12 +1010,24 @@ public class MQClientInstance {
 
         HashMap<Long/* brokerId */, String/* address */> map = this.brokerAddrTable.get(brokerName);
         if (map != null && !map.isEmpty()) {
+            // 修改broker地址内外网映射
+            String extBrokerAddr = System.getProperty("brokerAddr");
+            
             for (Map.Entry<Long, String> entry : map.entrySet()) {
                 Long id = entry.getKey();
                 brokerAddr = entry.getValue();
                 if (brokerAddr != null) {
                     found = true;
                     if (MixAll.MASTER_ID == id) {
+                        if (StringUtils.isNotBlank(extBrokerAddr)) {
+                            String [] brokerAddrArray  = extBrokerAddr.split(",");
+                            if(brokerAddrArray[0].equals(brokerName)) {
+                                brokerAddr = brokerAddrArray[1];
+                            }
+                            if(brokerAddrArray[2].equals(brokerName)) {
+                                brokerAddr = brokerAddrArray[3];
+                            }
+                        }
                         slave = false;
                     } else {
                         slave = true;
@@ -1020,11 +1046,23 @@ public class MQClientInstance {
     }
 
     public String findBrokerAddressInPublish(final String brokerName) {
-        HashMap<Long/* brokerId */, String/* address */> map = this.brokerAddrTable.get(brokerName);
-        if (map != null && !map.isEmpty()) {
-            return map.get(MixAll.MASTER_ID);
+        // 修改broker地址内外网映射
+        String brokerAddr = System.getProperty("brokerAddr");
+        if (null == brokerAddr || "".equals(brokerAddr)) {
+            HashMap<Long/* brokerId */, String/* address */> map = this.brokerAddrTable.get(brokerName);
+            if (map != null && !map.isEmpty()) {
+                return map.get(MixAll.MASTER_ID);
+            }
+        } else {
+            String [] brokerAddrArray  = brokerAddr.split(",");
+            if(brokerAddrArray[0].equals(brokerName)) {
+                return brokerAddrArray[1];
+            }
+            if(brokerAddrArray[2].equals(brokerName)) {
+                return brokerAddrArray[3];
+            }
         }
-
+        
         return null;
     }
 
@@ -1036,18 +1074,32 @@ public class MQClientInstance {
         String brokerAddr = null;
         boolean slave = false;
         boolean found = false;
+        
+        // 修改broker地址内外网映射
+        brokerAddr = System.getProperty("brokerAddr");
+        if (null == brokerAddr || "".equals(brokerAddr)) {
 
-        HashMap<Long/* brokerId */, String/* address */> map = this.brokerAddrTable.get(brokerName);
-        if (map != null && !map.isEmpty()) {
-            brokerAddr = map.get(brokerId);
-            slave = brokerId != MixAll.MASTER_ID;
-            found = brokerAddr != null;
+            HashMap<Long/* brokerId */, String/* address */> map = this.brokerAddrTable.get(brokerName);
+            if (map != null && !map.isEmpty()) {
+                brokerAddr = map.get(brokerId);
+                slave = brokerId != MixAll.MASTER_ID;
+                found = brokerAddr != null;
 
-            if (!found && !onlyThisBroker) {
-                Entry<Long, String> entry = map.entrySet().iterator().next();
-                brokerAddr = entry.getValue();
-                slave = entry.getKey() != MixAll.MASTER_ID;
-                found = true;
+                if (!found && !onlyThisBroker) {
+                    Entry<Long, String> entry = map.entrySet().iterator().next();
+                    brokerAddr = entry.getValue();
+                    slave = entry.getKey() != MixAll.MASTER_ID;
+                    found = true;
+                }
+            }
+        } else {
+            found = true;
+            String [] brokerAddrArray  = brokerAddr.split(",");
+            if(brokerAddrArray[0].equals(brokerName)) {
+                brokerAddr = brokerAddrArray[1];
+            }
+            if(brokerAddrArray[2].equals(brokerName)) {
+                brokerAddr = brokerAddrArray[3];
             }
         }
 
@@ -1087,12 +1139,25 @@ public class MQClientInstance {
     }
 
     public String findBrokerAddrByTopic(final String topic) {
+        
+        // 修改broker地址内外网映射
+        String brokerAddr = System.getProperty("brokerAddr");
+        
         TopicRouteData topicRouteData = this.topicRouteTable.get(topic);
         if (topicRouteData != null) {
             List<BrokerData> brokers = topicRouteData.getBrokerDatas();
             if (!brokers.isEmpty()) {
                 int index = random.nextInt(brokers.size());
                 BrokerData bd = brokers.get(index % brokers.size());
+                if (StringUtils.isNotBlank(brokerAddr)) {
+                    String [] brokerAddrArray  = brokerAddr.split(",");
+                    if(brokerAddrArray[0].equals(bd.getBrokerName())) {
+                        return brokerAddrArray[1];
+                    }
+                    if(brokerAddrArray[2].equals(bd.getBrokerName())) {
+                        return brokerAddrArray[3];
+                    }
+                }
                 return bd.selectBrokerAddr();
             }
         }
